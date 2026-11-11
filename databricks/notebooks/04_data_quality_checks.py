@@ -1,25 +1,134 @@
-from pyspark.sql import functions as F
-
-# Set this parameter to the Gold Delta root path.
-dbutils.widgets.text("gold_path", "", "Gold Delta root path")
-gold_path = dbutils.widgets.get("gold_path")
-if not gold_path:
-    raise ValueError("Set gold_path notebook parameter.")
-
-fact = spark.read.format("delta").load(f"{gold_path.rstrip('/')}/fact_sales")
-checks = {
-    "fact has rows": fact.limit(1).count() > 0,
-    "unique order line": fact.groupBy("order_line_id").count().filter(F.col("count") > 1).limit(1).count() == 0,
-    "required keys populated": fact.filter(
-        F.col("date_key").isNull() | F.col("customer_key").isNull() |
-        F.col("product_key").isNull() | F.col("store_key").isNull()
-    ).limit(1).count() == 0,
-    "non-negative sales": fact.filter(F.col("net_sales") < 0).limit(1).count() == 0,
+{
+  "name": "retail_master_pipeline",
+  "properties": {
+    "description": "End-to-end retail ingestion and transformation orchestration",
+    "activities": [
+      {
+        "name": "Copy_Raw_Sales_To_ADLS",
+        "type": "Copy",
+        "dependsOn": [],
+        "typeProperties": {
+          "source": {
+            "type": "DelimitedTextSource",
+            "storeSettings": {
+              "type": "FileServerReadSettings",
+              "recursive": false,
+              "enablePartitionDiscovery": false
+            },
+            "formatSettings": {
+              "type": "DelimitedTextReadSettings",
+              "skipLineCount": 0,
+              "quoteChar": "\""
+            }
+          },
+          "sink": {
+            "type": "DelimitedTextSink",
+            "storeSettings": {
+              "type": "AzureBlobFSWriteSettings"
+            },
+            "formatSettings": {
+              "type": "DelimitedTextWriteSettings",
+              "quoteAllText": true
+            }
+          },
+          "enableStaging": false
+        },
+        "inputs": [
+          {
+            "referenceName": "raw_sales_dataset",
+            "type": "DatasetReference"
+          }
+        ],
+        "outputs": [
+          {
+            "referenceName": "bronze_sales_dataset",
+            "type": "DatasetReference"
+          }
+        ]
+      },
+      {
+        "name": "Run_Bronze_Ingestion_Notebook",
+        "type": "DatabricksNotebook",
+        "dependsOn": [
+          {
+            "activity": "Copy_Raw_Sales_To_ADLS",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ],
+        "typeProperties": {
+          "notebookPath": "/Workspace/Users/azure_portfolio/01_bronze_ingest",
+          "baseParameters": {
+            "source_path": "abfss://landing@<storage_account>.dfs.core.windows.net/sales/",
+            "bronze_path": "abfss://bronze@<storage_account>.dfs.core.windows.net/sales/",
+            "batch_id": "@{pipeline().RunId}"
+          }
+        }
+      },
+      {
+        "name": "Run_Silver_Transformation_Notebook",
+        "type": "DatabricksNotebook",
+        "dependsOn": [
+          {
+            "activity": "Run_Bronze_Ingestion_Notebook",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ],
+        "typeProperties": {
+          "notebookPath": "/Workspace/Users/azure_portfolio/02_silver_transform",
+          "baseParameters": {
+            "bronze_path": "abfss://bronze@<storage_account>.dfs.core.windows.net/sales/",
+            "silver_path": "abfss://silver@<storage_account>.dfs.core.windows.net/sales/",
+            "quarantine_path": "abfss://silver@<storage_account>.dfs.core.windows.net/sales_quarantine/"
+          }
+        }
+      },
+      {
+        "name": "Run_Gold_Model_Notebook",
+        "type": "DatabricksNotebook",
+        "dependsOn": [
+          {
+            "activity": "Run_Silver_Transformation_Notebook",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ],
+        "typeProperties": {
+          "notebookPath": "/Workspace/Users/azure_portfolio/03_gold_dimensional_model",
+          "baseParameters": {
+            "silver_path": "abfss://silver@<storage_account>.dfs.core.windows.net/sales/",
+            "gold_path": "abfss://gold@<storage_account>.dfs.core.windows.net/"
+          }
+        }
+      },
+      {
+        "name": "Run_Data_Quality_Check_Notebook",
+        "type": "DatabricksNotebook",
+        "dependsOn": [
+          {
+            "activity": "Run_Gold_Model_Notebook",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ],
+        "typeProperties": {
+          "notebookPath": "/Workspace/Users/azure_portfolio/04_data_quality_checks",
+          "baseParameters": {
+            "gold_path": "abfss://gold@<storage_account>.dfs.core.windows.net/"
+          }
+        }
+      }
+    ],
+    "annotations": [],
+    "lastModifiedBy": {
+      "name": "Azure Portfolio",
+      "type": "User"
+    },
+    "lastModifiedTime": "2026-11-11T00:00:00Z"
+  }
 }
-
-for name, passed in checks.items():
-    print(f"{'PASS' if passed else 'FAIL'}: {name}")
-failed = [name for name, passed in checks.items() if not passed]
-if failed:
-    raise ValueError("Gold quality gate failed: " + ", ".join(failed))
-print("All Gold checks passed.")
