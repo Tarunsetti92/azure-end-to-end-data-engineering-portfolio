@@ -1,175 +1,98 @@
-# Azure Retail Analytics Data Platform
+# Azure Retail Analytics — beginner-friendly data engineering portfolio
 
-A production-style Azure data engineering portfolio project designed to demonstrate hands-on experience with Azure Data Factory, ADLS Gen2, Databricks, PySpark, Spark SQL, Delta Lake, and Azure Synapse Analytics. This project follows a medallion architecture and a retail sales star schema to model a realistic enterprise analytics workflow.
+An educational, end-to-end project that follows retail sales data from CSV files to analytics-ready warehouse tables. It demonstrates the core ideas behind **Azure Data Factory (ADF), ADLS Gen2, Azure Databricks, PySpark, Delta Lake, Synapse SQL, incremental processing, data quality, and dimensional modeling**.
 
-## Business objective
+> **Status and honesty:** This repository contains learning-oriented templates and example code. It does not include deployed Azure resources, credentials, or verified cloud execution. Azure JSON artifacts use placeholders and must be configured and validated in your own subscription before deployment. Do not present cloud runs or performance results as completed unless you have actually run and measured them.
 
-Retail teams need trusted data for sales analysis, revenue monitoring, regional trends, customer insights, and product performance reporting. This project moves raw files from source systems into a governed lakehouse and then publishes a curated warehouse layer for BI and analytical workloads.
+## Start here
 
-## Architecture overview
+If you are new to data engineering, follow [the beginner's guide](docs/getting-started.md) first. It explains the project in order, defines the key terms, and shows what can be practiced locally before Azure is set up.
 
-```text
-Raw sources
-  |
-  v
-Azure Data Factory (orchestration, scheduling, parameterization)
-  |
-  v
-ADLS Gen2 Landing Zone
-  |
-  v
-Bronze (raw + ingestion metadata)
-  |
-  v
-Databricks / PySpark / Spark SQL
-  -> Silver (clean + standardized + deduplicated)
-  -> Gold (facts + dimensions)
-  |
-  v
-Azure Synapse Analytics
-  -> dim_date, dim_customer, dim_product, dim_store
-  -> fact_sales
-  |
-  v
-Power BI / downstream analytics
-```
+## What the project does
 
-## Core cloud services
-
-- Azure Data Factory (ADF)
-- Azure Data Lake Storage Gen2 (ADLS Gen2)
-- Azure Databricks
-- PySpark and Spark SQL
-- Delta Lake
-- Azure Synapse Analytics
-- SQL Server / T-SQL (for warehouse patterns and SQL tuning examples)
-
-## Data model
-
-### Fact table
-
-- `fact_sales`
-  - `order_id`
-  - `customer_key`
-  - `product_key`
-  - `store_key`
-  - `date_key`
-  - `quantity`
-  - `sales_amount`
-  - `discount_amount`
-
-### Dimension tables
-
-- `dim_date`
-- `dim_customer`
-- `dim_product`
-- `dim_store`
-
-### Architecture pattern
-
-This project is designed to follow a modern analytics pattern:
-
-- Bronze: raw ingestion with minimal transformation
-- Silver: cleaning, type correction, data quality validation, deduplication
-- Gold: star schema publish-ready analytics tables
-
-## Features implemented in this scaffold
-
-- Parameterized ADF pipeline example
-- Databricks Bronze/Silver/Gold notebook structure
-- Gold layer dimensional modeling examples
-- Synapse warehouse DDL and analytical queries
-- Data quality validation patterns
-- Incremental / watermark-based design for future CDC and ETL/ELT workflows
-
-## Skills demonstrated
-
-This repository is aligned to the following job requirements:
-
-- Data Engineering
-- Data Warehousing
-- Azure Data Factory (ADF)
-- Azure Databricks
-- PySpark and Spark SQL
-- Azure Synapse Analytics
-- Star schema design / dimensional modeling
-- Fact and Dimension modeling
-- ETL/ELT patterns
-- Incremental loads and CDC concepts
-- ADLS Gen2 and Azure cloud data services
-- SQL performance tuning and warehouse optimization
-
-## Repository structure
+1. A sales CSV arrives in a landing area.
+2. ADF is the planned orchestrator: it copies/identifies input and starts the processing stages.
+3. Databricks with PySpark reads the file and writes a raw Bronze Delta table.
+4. Silver processing parses types, checks business rules, removes duplicate line records, and separates invalid records.
+5. Gold processing creates a sales fact and date/customer/product/store dimensions.
+6. Synapse SQL provides the warehouse schema and example analytical queries.
 
 ```text
-.
-├── README.md
-├── requirements.txt
-├── docs/
-│   ├── architecture.md
-│   ├── data-dictionary.md
-│   └── roadmap.md
-├── adf/
-│   ├── README.md
-│   ├── pipelines/
-│   │   └── retail_master_pipeline.json
-│   └── datasets/
-│       ├── raw_sales_dataset.json
-│       └── bronze_sales_dataset.json
-├── databricks/
-│   ├── README.md
-│   ├── notebooks/
-│   │   ├── 01_bronze_ingest.py
-│   │   ├── 02_silver_transform.py
-│   │   ├── 03_gold_dimensional_model.py
-│   │   └── 04_data_quality_checks.py
-│   └── jobs/
-│       └── retail_pipeline_job.json
-├── synapse/
-│   ├── README.md
-│   ├── ddl/
-│   │   ├── 01_create_schema.sql
-│   │   ├── 02_create_dimensions.sql
-│   │   └── 03_create_fact_tables.sql
-│   └── queries/
-│       ├── 01_sales_by_region.sql
-│       └── 02_top_products.sql
-├── infra/
-│   └── README.md
-├── src/
-│   └── README.md
-├── tests/
-│   └── README.md
-└── LICENSE
+Synthetic CSV -> ADF orchestration -> ADLS Gen2 landing
+                                  -> Databricks / PySpark
+                                     Bronze -> Silver + quarantine -> Gold
+                                  -> Synapse warehouse -> reporting queries
 ```
 
-## Project notes
+This is a **batch** learning project. CDC and watermark concepts are explained and a Delta `MERGE` example is provided as a pattern; the starter pipeline does not claim to implement a source-system CDC feed.
 
-This solution is intentionally scaffolded with realistic artifacts and patterns suitable for a professional portfolio. It is structured to show end-to-end thinking rather than just individual isolated scripts.
+## Layers in plain language
 
-The repository focuses on design clarity, maintainability, and enterprise data-platform practices:
+| Layer | What it means | Example in this project |
+| --- | --- | --- |
+| Source / landing | Original input, kept for traceability | `data/sample/sales.csv` locally; landing container in Azure |
+| Bronze | Raw copy plus ingestion metadata | Preserve source values and add batch/file metadata |
+| Silver | Clean, typed, checked records | Valid sales lines and a separate quarantine output |
+| Gold | Business-ready tables | Fact sales joined to descriptive dimensions |
+| Warehouse | SQL-serving layer for analysis | Synapse DDL and reporting queries |
 
-- robust data contracts
-- explicit transformations in Databricks
-- orchestrated workflow management in ADF
-- analytical data model in Synapse
-- operational visibility and data quality guardrails
+## Skills shown
 
-## Next steps for full implementation
+- **ADF:** orchestration concepts, pipeline JSON template, parameters and dependencies.
+- **ADLS Gen2:** landing and medallion storage layout.
+- **Databricks / PySpark / Spark SQL:** staged transformations and Delta tables.
+- **Data warehousing:** declared fact grain, dimensions, star schema, and analytical SQL.
+- **ETL/ELT:** ingestion, transformations, validation, and curated publishing.
+- **Incremental processing:** batch IDs, watermarks, idempotency, and a Delta merge pattern in the docs.
+- **Reliability:** quarantine, validation gates, run metadata, and troubleshooting notes.
+- **Performance:** tuning guidance based on measuring Spark and Synapse workloads, not unsupported claims.
 
-1. Create Azure resources in a dev/test subscription.
-2. Configure ADLS Gen2 and mount points for Databricks.
-3. Import or create the notebook code into Databricks.
-4. Set up ADF pipeline parameters and linked services.
-5. Load data into Synapse using a controlled load process.
-6. Validate row counts, data quality, and downstream reports.
+## Repository map
 
-## Security and hygiene
+```text
+adf/                         ADF pipeline template and setup notes
+ data/sample/sales.csv       Tiny synthetic input for learning
+ databricks/notebooks/       Bronze -> Silver -> Gold -> quality examples
+ docs/                       Beginner guide, design, data dictionary, operations
+ synapse/ddl/                 Warehouse table definitions
+ synapse/queries/             Reporting SQL examples
+ tests/                       Lightweight data-contract tests
+```
 
-- Do not commit secrets, access keys, or production connection strings.
-- Use managed identity, RBAC, or Azure Key Vault where possible.
-- Keep source data synthetic or de-identified.
+## Quick start
+
+### Learn the design without Azure
+
+- Read [`docs/getting-started.md`](docs/getting-started.md).
+- Inspect the synthetic input and the [data dictionary](docs/data-dictionary.md).
+- Read the notebooks in numeric order. Their storage paths are placeholders until configured in Databricks.
+
+### Run the PySpark examples
+
+These notebooks require a Spark environment with Delta Lake support (for example, Azure Databricks). Configure the notebook parameters and storage access for your workspace as described in the getting-started guide. Do not paste storage keys into code.
+
+### Run the basic local test
+
+Python 3.10+:
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+The local test checks the sample CSV contract; it does not run Spark or connect to Azure.
+
+## Important modeling decision
+
+The fact grain is **one row per order line**, identified by `order_line_id` (not one row per order). This allows an order to contain multiple products. Gold dimensions use SHA-256 business-key hashes as stable example surrogate keys; date uses integer `YYYYMMDD`. These choices are educational and should be reviewed against the target warehouse's governance and key-management standards.
+
+## Security and cost
+
+Use managed identity or a secret manager for Azure access. Never commit secrets, customer data, access tokens, or production endpoints. Azure services can incur charges; use a development subscription, small workloads, budgets/alerts, and delete or pause resources when finished. See [the runbook](docs/runbook.md).
+
+## Reference
+
+The learning concept is inspired by the end-to-end Azure data engineering tutorial at [YouTube](https://www.youtube.com/watch?v=6_hXeNg9TJ0). This repository is an independent educational implementation and does not include the tutorial's original code.
 
 ## License
 
-This project is licensed under the MIT License. See `LICENSE` for details.
+MIT. See [`LICENSE`](LICENSE).

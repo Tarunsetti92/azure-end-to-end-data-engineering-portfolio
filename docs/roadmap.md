@@ -1,32 +1,14 @@
-# Development roadmap
+# Retail analytics project roadmap
 
-## Phase 1: foundation
+- [x] Define beginner-friendly flow, sample data contract, layers, and star-schema grain.
+- [x] Add a small synthetic sales CSV and local contract tests.
+- [x] Add staged PySpark examples for Bronze, Silver/quarantine, Gold, and quality checks.
+- [x] Add Synapse schema and beginner reporting queries.
+- [ ] Configure and validate ADF linked services, datasets, and pipeline in a development subscription.
+- [ ] Run notebooks in Databricks and capture real validation results.
+- [ ] Load Gold tables into a selected Synapse SQL environment and test queries.
+- [ ] Add CDC source-specific handling, SCD Type 2, batch ledger, and tested incremental merge.
+- [ ] Add measured Spark/Synapse performance experiments with reproducible conditions.
+- [ ] Add deployment automation only after the manual workflow is understood and validated.
 
-- define source-to-target contracts
-- configure Azure resources and access patterns
-- create ADLS Gen2 landing and curated zones
-
-## Phase 2: ingestion
-
-- implement ADF pipeline examples
-- ingest source CSV/JSON into landing zone
-- trigger Bronze notebook processing
-
-## Phase 3: transformation
-
-- validate and clean Silver data
-- apply incremental logic and data-quality checks
-- build Gold star schema
-
-## Phase 4: warehouse and analytics
-
-- create Synapse DDL
-- validate analytical SQL
-- test load and performance behavior
-
-## Phase 5: operationalization
-
-- add monitoring, row-level checks, and alerting
-- document retries and rerun patterns
-- verify cost controls and security
-a
+A checked item means a repository artifact has been added; it does not imply a cloud deployment unless explicitly stated.

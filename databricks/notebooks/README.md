@@ -1,10 +1,10 @@
 # Databricks notebooks
 
-Planned notebooks:
+Run in order after configuring the notebook parameters and storage access:
 
-1. `01_bronze_ingest` — ingest raw input, attach batch/source metadata, and write Bronze Delta.
-2. `02_silver_transform` — validate, standardize, deduplicate, and quarantine invalid rows.
-3. `03_gold_model` — incrementally build dimensions and the sales fact.
-4. `04_data_quality` — execute quality and reconciliation checks.
+1. `01_bronze_ingest.py` — source CSV to append-only Bronze Delta with batch metadata.
+2. `02_silver_transform.py` — type conversion, validation, deterministic duplicate handling, and quarantine.
+3. `03_gold_dimensional_model.py` — date/customer/product/store dimensions and order-line fact.
+4. `04_data_quality_checks.py` — quality gate for Gold output.
 
-No executable notebooks are present yet. Add them as implementation progresses, with parameters and expected schemas documented.
+The notebooks rely on Databricks-provided `spark` and `dbutils`. They are examples requiring workspace validation, not local Python scripts. Read [the beginner guide](../../docs/getting-started.md) and [runbook](../../docs/runbook.md) before running.

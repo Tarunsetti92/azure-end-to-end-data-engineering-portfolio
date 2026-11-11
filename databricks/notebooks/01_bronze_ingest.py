@@ -1,26 +1,35 @@
-from pyspark.sql import SparkSession
-from pyspark.sql.functions import current_timestamp, lit, input_file_name
+# This sample file contains synthetic data only. Replace placeholders before using Azure.
+# Configure storage paths with Databricks job parameters or widgets; never embed credentials.
 
-spark = SparkSession.builder.appName("Retail_Bronze_Ingest").getOrCreate()
+from pyspark.sql import functions as F
 
-source_path = spark.conf.get("spark.databricks.delta.source_path", "abfss://landing@<storage_account>.dfs.core.windows.net/sales/")
-bronze_path = spark.conf.get("spark.databricks.delta.bronze_path", "abfss://bronze@<storage_account>.dfs.core.windows.net/sales/")
+# Databricks notebook parameters. ADF/job orchestration can pass these values.
+dbutils.widgets.text("source_path", "", "Landing CSV path")
+dbutils.widgets.text("bronze_path", "", "Bronze Delta path")
+dbutils.widgets.text("batch_id", "manual-local-demo", "Batch/run ID")
+source_path = dbutils.widgets.get("source_path")
+bronze_path = dbutils.widgets.get("bronze_path")
+batch_id = dbutils.widgets.get("batch_id")
 
-raw_df = (
-    spark.read
-    .option("header", True)
-    .option("inferSchema", True)
-    .option("mode", "FAILFAST")
+if not source_path or not bronze_path:
+    raise ValueError("Set source_path and bronze_path notebook parameters before running.")
+
+# Read strings first: explicit parsing belongs in Silver, not schema inference.
+source_df = (
+    spark.read.option("header", True)
+    .option("mode", "PERMISSIVE")
     .csv(source_path)
 )
 
-raw_df = (
-    raw_df
-    .withColumn("source_file", input_file_name())
-    .withColumn("ingested_at", current_timestamp())
-    .withColumn("source_system", lit("retail_sales"))
+bronze_df = (
+    source_df
+    .withColumn("source_file", F.input_file_name())
+    .withColumn("batch_id", F.lit(batch_id))
+    .withColumn("ingested_at", F.current_timestamp())
 )
 
-raw_df.write.mode("append").format("delta").save(bronze_path)
+# Append preserves the raw history. In a production rerun design, isolate batches
+# and make retry behavior explicit (for example, replace only the same batch).
+bronze_df.write.format("delta").mode("append").save(bronze_path)
 
-print(f"Bronze ingest complete: rows={raw_df.count()}")
+print(f"Bronze write complete. batch_id={batch_id}")

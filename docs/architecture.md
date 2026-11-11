@@ -1,31 +1,41 @@
 # Architecture
 
-## Component responsibilities
+## Purpose
 
-- **Azure Data Factory:** Parameterized orchestration, source-to-lake ingestion, dependency management, retries, and run-level monitoring.
-- **ADLS Gen2:** Durable landing storage and Bronze/Silver/Gold data zones. Organize paths by source, entity, and ingestion date where appropriate.
-- **Azure Databricks:** PySpark and Spark SQL transformations over Delta tables, data-quality enforcement, and dimensional model preparation.
-- **Azure Synapse Analytics:** SQL warehouse tables and analytical access to curated Gold data.
+Ingest synthetic retail sales records, preserve a traceable raw layer, clean and validate them, build a star schema, and expose SQL examples. This is a learning architecture, not a claim that Azure has been deployed.
 
-## Data flow
+## Components and responsibilities
 
-1. ADF starts a batch and records its run identifier and configured watermark.
-2. Source data is copied to an immutable or replayable landing location.
-3. Databricks validates the input and writes raw records with ingestion metadata to Bronze.
-4. Silver processing applies explicit schema, normalization, deduplication, and quarantine rules.
-5. Gold processing builds dimensions and facts, applies incremental merge/history rules, and performs reconciliation.
-6. Curated data is loaded or exposed in Synapse for analytical queries.
-7. ADF and the compute jobs expose status, row counts, and failure context for operations.
+- **ADF:** schedules and orchestrates copy and Databricks activities, passes non-secret parameters, handles dependency/retry behavior, and exposes pipeline run status.
+- **ADLS Gen2:** stores landing files and Bronze/Silver/Gold Delta data. In production, use containers, RBAC, lifecycle policy, and environment separation appropriate to the organization.
+- **Databricks:** uses Spark/PySpark and Delta to process the larger-than-memory workloads. Notebooks are numbered to make the flow easy to follow.
+- **Synapse SQL:** holds a warehouse-oriented star schema and sample reporting queries. Loading/publishing into Synapse must be configured for the chosen Synapse deployment and is not automated by the starter ADF template.
 
-## Cross-cutting requirements
+## Flow
 
-- **Idempotency:** Reprocessing the same batch should not create duplicate business records.
-- **Incremental processing:** Persist a source-appropriate watermark or change token; advance it only after successful publication.
-- **Data quality:** Preserve rejected records and reason codes; fail publication on critical contract violations.
-- **Observability:** Emit run/batch IDs, source and target counts, durations, and error summaries.
-- **Security:** Prefer managed identity and secret scopes; keep secrets and real customer data out of Git.
-- **Performance:** Choose Delta partitioning, Spark sizing, Synapse distribution, and indexing based on measured query patterns rather than defaults.
+```text
+CSV source
+  -> ADF copy/orchestration
+  -> ADLS landing
+  -> Notebook 01: Bronze + run metadata
+  -> Notebook 02: Silver validation + quarantine
+  -> Notebook 03: Gold dimensions + fact
+  -> Notebook 04: publish checks
+  -> Synapse warehouse tables / SQL reporting
+```
 
-## Model
+## Layer contracts
 
-The planned star schema has `fact_sales` at the transaction-line grain, joined to date, customer, product, and store dimensions. Exact source keys, late-arriving dimension behavior, and SCD rules will be specified in the data dictionary before implementation.
+- **Landing:** original source file is retained; file path and arrival/batch identity are tracked.
+- **Bronze:** source columns are retained with `source_file`, `batch_id`, and `ingested_at`. Do not silently overwrite prior batches.
+- **Silver:** parseable and valid rows have explicit types. Invalid rows include a `reject_reason` and are stored separately. Duplicate order lines are resolved deterministically or rejected.
+- **Gold:** one fact row per `order_line_id`; dimension references use stable demo hash keys, and `date_key` is `YYYYMMDD`.
+- **Synapse:** warehouse table definitions reflect the Gold grain and key types. Distribution/index design is a workload-driven decision, not a universal rule.
+
+## Reliability, monitoring, and security
+
+Every production run should have a run/batch ID, start/end timestamps, input/output/reject counts, status, and actionable error detail. Retries must be idempotent. Validate data before advancing a watermark or publishing Gold. Use managed identity and least privilege; store secrets in a managed secret service. See the [runbook](runbook.md).
+
+## Performance approach
+
+First measure file sizes, Spark stage metrics, skew, shuffle, and query patterns. Avoid partitioning tiny datasets. In Synapse, compare distribution and storage choices with representative workloads. Record before/after metrics and test conditions; do not make unsupported performance claims.

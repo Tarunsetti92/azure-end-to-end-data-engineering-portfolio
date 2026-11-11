@@ -1,70 +1,60 @@
-from pyspark.sql import SparkSession, functions as F
-from pyspark.sql.window import Window
+from pyspark.sql import functions as F
 
-spark = SparkSession.builder.appName("Retail_Gold_Model").getOrCreate()
+# Paths are set by the job/ADF environment; use managed identity for storage access.
+dbutils.widgets.text("silver_path", "", "Silver Delta path")
+dbutils.widgets.text("gold_path", "", "Gold Delta root path")
+silver_path = dbutils.widgets.get("silver_path")
+gold_path = dbutils.widgets.get("gold_path")
+if not silver_path or not gold_path:
+    raise ValueError("Set silver_path and gold_path notebook parameters.")
 
-silver_path = "abfss://silver@<storage_account>.dfs.core.windows.net/sales/"
-gold_path = "abfss://gold@<storage_account>.dfs.core.windows.net/"
+sales = spark.read.format("delta").load(silver_path)
 
-sales_df = spark.read.format("delta").load(silver_path)
-
-# Build dimensions
+def stable_key(column_name):
+    # Deterministic demo key derived from a natural key. Review enterprise key
+    # standards before adopting hash keys in a real warehouse.
+    return F.sha2(F.col(column_name).cast("string"), 256)
 
 dim_customer = (
-    sales_df.select(
-        F.col("customer_id").alias("customer_key"),
-        F.col("customer_name").alias("customer_name"),
-        F.col("region").alias("region")
-    )
-    .dropDuplicates()
+    sales.select("customer_id", "customer_name").dropDuplicates(["customer_id"])
+    .withColumn("customer_key", stable_key("customer_id"))
+    .select("customer_key", "customer_id", "customer_name")
 )
-
 dim_product = (
-    sales_df.select(
-        F.col("product_id").alias("product_key"),
-        F.col("product_name").alias("product_name"),
-        F.col("category").alias("category")
-    )
-    .dropDuplicates()
+    sales.select("product_id", "product_name", "category").dropDuplicates(["product_id"])
+    .withColumn("product_key", stable_key("product_id"))
+    .select("product_key", "product_id", "product_name", "category")
 )
-
 dim_store = (
-    sales_df.select(
-        F.col("store_id").alias("store_key"),
-        F.col("store_name").alias("store_name"),
-        F.col("region").alias("region")
-    )
-    .dropDuplicates()
+    sales.select("store_id", "store_name", "region").dropDuplicates(["store_id"])
+    .withColumn("store_key", stable_key("store_id"))
+    .select("store_key", "store_id", "store_name", "region")
 )
-
 dim_date = (
-    sales_df.select(F.to_date(F.col("order_date")).alias("date_key"))
-    .distinct()
-    .withColumn("year", F.year("date_key"))
-    .withColumn("month", F.month("date_key"))
-    .withColumn("day", F.dayofmonth("date_key"))
-    .withColumn("month_name", F.date_format("date_key", "MMMM"))
+    sales.select(F.to_date("order_date").alias("full_date")).distinct()
+    .withColumn("date_key", F.date_format("full_date", "yyyyMMdd").cast("int"))
+    .withColumn("year_no", F.year("full_date"))
+    .withColumn("quarter_no", F.quarter("full_date"))
+    .withColumn("month_no", F.month("full_date"))
+    .withColumn("month_name", F.date_format("full_date", "MMMM"))
+    .withColumn("day_no", F.dayofmonth("full_date"))
 )
 
-fact_sales = (
-    sales_df.select(
-        F.col("order_id").alias("order_id"),
-        F.col("customer_id").alias("customer_key"),
-        F.col("product_id").alias("product_key"),
-        F.col("store_id").alias("store_key"),
-        F.to_date(F.col("order_date")).alias("date_key"),
-        F.col("quantity").alias("quantity"),
-        F.col("sales_amount").alias("sales_amount"),
-        F.col("discount_pct").alias("discount_pct")
-    )
+facts = (
+    sales.withColumn("date_key", F.date_format("order_date", "yyyyMMdd").cast("int"))
+    .withColumn("customer_key", stable_key("customer_id"))
+    .withColumn("product_key", stable_key("product_id"))
+    .withColumn("store_key", stable_key("store_id"))
+    .withColumn("net_sales", F.round(F.col("quantity") * F.col("unit_price") * (1 - F.col("discount_pct")), 2).cast("decimal(18,2)"))
+    .select("order_line_id", "order_id", "date_key", "customer_key", "product_key", "store_key", "quantity", "unit_price", "discount_pct", "net_sales")
 )
 
-# Write curated tables
+# Each write replaces this demo's complete output. For incremental production
+# publishing, use Delta MERGE with a documented change key and delete policy.
+for frame, name in [
+    (dim_date, "dim_date"), (dim_customer, "dim_customer"),
+    (dim_product, "dim_product"), (dim_store, "dim_store"), (facts, "fact_sales")
+]:
+    frame.write.format("delta").mode("overwrite").option("overwriteSchema", "true").save(f"{gold_path.rstrip('/')}/{name}")
 
-dim_customer.write.mode("overwrite").format("delta").save(f"{gold_path}dim_customer")
-dim_product.write.mode("overwrite").format("delta").save(f"{gold_path}dim_product")
-dim_store.write.mode("overwrite").format("delta").save(f"{gold_path}dim_store")
-dim_date.write.mode("overwrite").format("delta").save(f"{gold_path}dim_date")
-fact_sales.write.mode("overwrite").format("delta").save(f"{gold_path}fact_sales")
-
-print("Gold dimensional model created successfully.")
+print("Gold star-schema tables written.")

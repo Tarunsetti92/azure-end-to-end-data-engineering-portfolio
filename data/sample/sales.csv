@@ -1,0 +1,6 @@
+order_id,order_line_id,order_date,customer_id,customer_name,product_id,product_name,category,store_id,store_name,region,quantity,unit_price,discount_pct
+ORD-1001,LINE-1,2026-10-01,C-001,Ada North,P-100,Notebook,Stationery,S-01,Central Store,North,2,4.50,0.00
+ORD-1001,LINE-2,2026-10-01,C-001,Ada North,P-220,Pen,Stationery,S-01,Central Store,North,3,1.25,0.10
+ORD-1002,LINE-3,2026-10-02,C-002,Sam River,P-310,Travel Mug,Kitchen,S-02,Lake Store,West,1,18.00,0.15
+ORD-1003,LINE-4,2026-10-02,C-003,Lee Stone,P-100,Notebook,Stationery,S-01,Central Store,North,5,4.50,0.00
+ORD-1004,LINE-5,2026-10-03,C-002,Sam River,P-440,Desk Lamp,Home,S-03,Market Store,East,1,32.00,0.05

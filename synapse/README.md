@@ -1,6 +1,3 @@
-# Synapse artifacts
+# Synapse SQL examples
 
-- `ddl/` — planned warehouse schema, dimensions, and fact table definitions.
-- `queries/` — planned analytical examples and performance investigations.
-
-Document table grain, distribution and indexing rationale, loading behavior, and any constraints on the target Synapse SKU. Validate SQL in a development workspace before describing it as production-tested.
+Run `ddl/01_create_retail_schema.sql` in the SQL environment you selected, then run queries from `queries/`. Confirm compatibility with the actual Synapse endpoint (dedicated SQL pool, serverless SQL pool, or another SQL environment); table/distribution features vary by service and configuration.

@@ -1,25 +1,25 @@
-from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 
-spark = SparkSession.builder.appName("Retail_Data_Quality").getOrCreate()
+# Set this parameter to the Gold Delta root path.
+dbutils.widgets.text("gold_path", "", "Gold Delta root path")
+gold_path = dbutils.widgets.get("gold_path")
+if not gold_path:
+    raise ValueError("Set gold_path notebook parameter.")
 
-gold_path = "abfss://gold@<storage_account>.dfs.core.windows.net/"
+fact = spark.read.format("delta").load(f"{gold_path.rstrip('/')}/fact_sales")
+checks = {
+    "fact has rows": fact.limit(1).count() > 0,
+    "unique order line": fact.groupBy("order_line_id").count().filter(F.col("count") > 1).limit(1).count() == 0,
+    "required keys populated": fact.filter(
+        F.col("date_key").isNull() | F.col("customer_key").isNull() |
+        F.col("product_key").isNull() | F.col("store_key").isNull()
+    ).limit(1).count() == 0,
+    "non-negative sales": fact.filter(F.col("net_sales") < 0).limit(1).count() == 0,
+}
 
-fact_sales = spark.read.format("delta").load(f"{gold_path}fact_sales")
-
-duplicate_check = fact_sales.groupBy("order_id").count().filter(F.col("count") > 1)
-null_customer = fact_sales.filter(F.col("customer_key").isNull()).count()
-null_product = fact_sales.filter(F.col("product_key").isNull()).count()
-null_store = fact_sales.filter(F.col("store_key").isNull()).count()
-negative_sales = fact_sales.filter(F.col("sales_amount") < 0).count()
-
-if duplicate_check.count() > 0:
-    raise ValueError(f"Duplicate order IDs detected in fact_sales: {duplicate_check.count()}")
-
-if null_customer > 0 or null_product > 0 or null_store > 0:
-    raise ValueError(f"Critical dimension keys missing: customer={null_customer}, product={null_product}, store={null_store}")
-
-if negative_sales > 0:
-    raise ValueError(f"Negative sales detected: {negative_sales}")
-
-print("Data quality checks passed.")
+for name, passed in checks.items():
+    print(f"{'PASS' if passed else 'FAIL'}: {name}")
+failed = [name for name, passed in checks.items() if not passed]
+if failed:
+    raise ValueError("Gold quality gate failed: " + ", ".join(failed))
+print("All Gold checks passed.")
