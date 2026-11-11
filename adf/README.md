@@ -1,5 +1,23 @@
-# ADF artifacts
+# Azure Data Factory implementation notes
 
-This directory is reserved for Azure Data Factory templates and examples, organized by artifact type (for example `pipelines/`, `datasets/`, `linkedServices/`, and `triggers/`). Add exported or source-controlled JSON only after validating it against the target ADF schema.
+This directory holds practical ADF JSON examples for a retail data platform. The examples are intentionally structured to be reusable, parameterized, and aligned with Azure best practices.
 
-Use parameterized environment settings and managed identity where supported. Do not commit credentials, account keys, SAS tokens, or production endpoints. The initial pipeline design is described in the root [README](../README.md) and [architecture document](../docs/architecture.md).
+## Example artifacts
+
+- `pipelines/retail_master_pipeline.json` — master orchestration pipeline
+- `datasets/raw_sales_dataset.json` — raw ingestion dataset
+- `datasets/bronze_sales_dataset.json` — Bronze destination dataset
+
+## Implementation principles
+
+- Use parameterized pipelines for environment-specific paths and file paths.
+- Prefer retries and failure handling over silent data loss.
+- Add a separate orchestration layer for batch metadata and notifications.
+- Use data quality gates and row counts before downstream processing.
+
+## Data flow
+
+1. Copy raw files from landing source to ADLS Gen2.
+2. Trigger Databricks job(s) for Bronze processing.
+3. Trigger Silver and Gold notebooks after successful completion.
+4. Monitor run status and send alerting if validation fails.

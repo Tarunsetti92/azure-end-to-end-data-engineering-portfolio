@@ -1,0 +1,23 @@
+{
+  "name": "bronze_sales_dataset",
+  "properties": {
+    "linkedServiceName": {
+      "referenceName": "AzureDataLakeStorageGen2",
+      "type": "LinkedServiceReference"
+    },
+    "annotations": [],
+    "type": "DelimitedText",
+    "typeProperties": {
+      "location": {
+        "type": "AzureBlobFSLocation",
+        "folderPath": "bronze/sales",
+        "fileSystem": "bronze"
+      },
+      "columnDelimiter": ",",
+      "escapeChar": "\\",
+      "firstRowAsHeader": true,
+      "quoteChar": "\""
+    },
+    "schema": []
+  }
+}

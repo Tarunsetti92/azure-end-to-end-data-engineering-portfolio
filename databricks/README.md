@@ -1,6 +1,10 @@
-# Databricks artifacts
+# Azure Databricks transformation notebooks
 
-- `notebooks/` — planned PySpark/Spark SQL stages for Bronze, Silver, Gold, and quality checks.
-- `jobs/` — planned job/task configuration examples.
+This directory contains the core lakehouse pipeline for business-ready retail datasets:
 
-Keep transformation logic testable and parameterized. Avoid hard-coded secrets and environment-specific storage credentials. Record assumptions, input/output contracts, and runtime requirements alongside each implementation.
+- 01_bronze_ingest.py: copy raw files into Bronze and attach ingestion metadata
+- 02_silver_transform.py: normalize, validate, and deduplicate records
+- 03_gold_dimensional_model.py: build gold dimensions and fact tables
+- 04_data_quality_checks.py: enforce row and business-rule validation checks
+
+The code is designed for Databricks Delta tables but can also be adapted to other Spark-enabled environments.

@@ -1,0 +1,18 @@
+# Retail pipeline job config
+
+This file is a placeholder for a Databricks job definition or deployment artifact. In production, use the Databricks Jobs API or workspace UI export to generate the final JSON and store it in a version-controlled deployment workflow.
+
+Example job sequence:
+
+1. 01_bronze_ingest
+2. 02_silver_transform
+3. 03_gold_dimensional_model
+4. 04_data_quality_checks
+
+Recommended settings:
+
+- cluster policy: autoscale enabled
+- retries: 1-2 attempt strategy
+- notifications: Slack or email on failure
+- timeout: use realistic SLA depending on dataset size
+- job parameters: storage account names, bronze/silver/gold paths, batch ID

@@ -1,0 +1,23 @@
+{
+  "name": "raw_sales_dataset",
+  "properties": {
+    "linkedServiceName": {
+      "referenceName": "AzureBlobStorage_Landing",
+      "type": "LinkedServiceReference"
+    },
+    "annotations": [],
+    "type": "DelimitedText",
+    "typeProperties": {
+      "location": {
+        "type": "AzureBlobFSLocation",
+        "folderPath": "landing/sales",
+        "fileSystem": "landing"
+      },
+      "columnDelimiter": ",",
+      "escapeChar": "\\",
+      "firstRowAsHeader": true,
+      "quoteChar": "\""
+    },
+    "schema": []
+  }
+}
